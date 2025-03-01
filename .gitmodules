@@ -1,0 +1,6 @@
+[submodule "user-service"]
+	path = user-service
+	url = https://github.com/mullarkey-peter/million-dollar-pciks-user-service.git
+[submodule "auth-service"]
+	path = auth-service
+	url = https://github.com/mullarkey-peter/million-dollar-picks-auth-service.git
