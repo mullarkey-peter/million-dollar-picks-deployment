@@ -1,27 +1,57 @@
-version: '3.8'
 services:
+  gateway:
+    build:
+      context: ./million-dollar-picks-gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "4000:4000"  # Gateway port
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8080/graphql
+      - USER_SERVICE_URL=http://user-service:8080/graphql
+    networks:
+      - milliondollarpicks-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
   auth-service:
     build:
       context: ./auth-service
       dockerfile: Dockerfile
     container_name: auth-service
     ports:
-      - "8080:8080"
+      - "8080:8080"  # GraphQL port
       - "9090:9090"  # gRPC port
     depends_on:
-      - auth-postgres
+      auth-postgres:
+        condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://auth-postgres:5432/authdb
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://auth-postgres:5432/authdb
       - SPRING_FLYWAY_URL=jdbc:postgresql://auth-postgres:5432/authdb
       - SPRING_FLYWAY_USER=postgres
       - SPRING_FLYWAY_PASSWORD=postgres
-      - AUTHENTICATION_ENABLED=true
     networks:
       - milliondollarpicks-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   user-service:
     build:
@@ -29,24 +59,31 @@ services:
       dockerfile: Dockerfile
     container_name: user-service
     ports:
-      - "8081:8080"  # Map to different host port to avoid conflict
+      - "8081:8080"  # Map to 8081 on host to avoid conflict with auth-service
     depends_on:
-      - user-postgres
-      - auth-service
+      user-postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://user-postgres:5432/userdb
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://user-postgres:5432/userdb
       - SPRING_FLYWAY_URL=jdbc:postgresql://user-postgres:5432/userdb
       - SPRING_FLYWAY_USER=postgres
       - SPRING_FLYWAY_PASSWORD=postgres
-      - AUTHENTICATION_ENABLED=true
       - GRPC_CLIENT_AUTH_SERVICE_HOST=auth-service
       - GRPC_CLIENT_AUTH_SERVICE_PORT=9090
     networks:
       - milliondollarpicks-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   auth-postgres:
     image: postgres:15-alpine
@@ -72,7 +109,7 @@ services:
     image: postgres:15-alpine
     container_name: user-postgres
     ports:
-      - "5433:5432"  # Map to different host port to avoid conflict
+      - "5433:5432"  # Map to 5433 on host to avoid conflict with auth-postgres
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -88,6 +125,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # Admin tools
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin
@@ -102,6 +140,12 @@ services:
     networks:
       - milliondollarpicks-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   auth-postgres-data:

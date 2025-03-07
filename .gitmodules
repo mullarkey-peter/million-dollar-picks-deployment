@@ -4,3 +4,9 @@
 [submodule "auth-service"]
 	path = auth-service
 	url = https://github.com/mullarkey-peter/million-dollar-picks-auth-service.git
+[submodule "million-dollar-picks-gateway"]
+	path = million-dollar-picks-gateway
+	url = https://github.com/mullarkey-peter/million-dollar-picks-gateway.git
+[submodule "retro-sporting-bets"]
+	path = retro-sporting-bets
+	url = https://github.com/mullarkey-peter/retro-sporting-bets.git
